@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCoverLetter, getVariantForJob } from "@/lib/drafting/store";
 import { getJobDetail } from "@/lib/jobs/store";
+import { getMasterResume } from "@/lib/resume/store";
+import { DraftPanel } from "./DraftPanel";
 import { StatusControl } from "./StatusControl";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +21,12 @@ export default async function JobDetailPage({
   if (!detail) notFound();
 
   const { job, match } = detail;
+
+  const [master, variant, coverLetter] = await Promise.all([
+    getMasterResume(),
+    getVariantForJob(jobId),
+    getCoverLetter(jobId),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -118,6 +127,13 @@ export default async function JobDetailPage({
           )}
         </section>
       )}
+
+      <DraftPanel
+        jobId={job.id}
+        hasMaster={Boolean(master)}
+        initialVariant={variant ? { id: variant.id, name: variant.name } : null}
+        initialCoverLetter={coverLetter}
+      />
 
       {job.description && (
         <section className="card mt-4 p-6">
