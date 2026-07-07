@@ -3,7 +3,12 @@
 import { useState, useTransition } from "react";
 import type { LlmConfig, Provider } from "@/lib/llm/config";
 import type { ProfileInput } from "@/lib/profile/store";
-import { saveLlmConfigAction, saveProfileAction } from "./actions";
+import { type ScheduleConfig, SCHEDULE_PRESETS } from "@/lib/schedule/types";
+import {
+  saveLlmConfigAction,
+  saveProfileAction,
+  saveScheduleAction,
+} from "./actions";
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   anthropic: "Anthropic (Claude)",
@@ -17,17 +22,103 @@ type Availability = Record<Provider, boolean>;
 export function SettingsForm({
   llm: initialLlm,
   availability,
+  schedule: initialSchedule,
   profile: initialProfile,
 }: {
   llm: LlmConfig;
   availability: Availability;
+  schedule: ScheduleConfig;
   profile: ProfileInput | null;
 }) {
   return (
     <div className="space-y-6">
       <ModelSection llm={initialLlm} availability={availability} />
       <ProfileSection profile={initialProfile} />
+      <ScheduleSection schedule={initialSchedule} />
     </div>
+  );
+}
+
+// --- Scheduling -------------------------------------------------------------
+
+function ScheduleSection({ schedule }: { schedule: ScheduleConfig }) {
+  const [enabled, setEnabled] = useState(schedule.enabled);
+  const [cronExpr, setCronExpr] = useState(schedule.cron);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const isPreset = SCHEDULE_PRESETS.some((p) => p.cron === cronExpr);
+
+  function save() {
+    setMsg(null);
+    start(async () => {
+      const res = await saveScheduleAction({ enabled, cron: cronExpr });
+      setMsg(res.ok ? res.message : res.error);
+    });
+  }
+
+  return (
+    <section className="card p-6">
+      <SectionHeader
+        title="Scheduled runs"
+        desc="Run the search pipeline automatically on a schedule. Runs use your saved job criteria and appear in the run log on the Jobs page."
+      />
+
+      <label className="flex cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="h-4 w-4 accent-[var(--accent)]"
+        />
+        <span className="text-sm font-medium">Enable scheduled runs</span>
+      </label>
+
+      <div className={enabled ? "mt-4" : "mt-4 opacity-50"}>
+        <span className="label">Frequency</span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {SCHEDULE_PRESETS.map((p) => {
+            const selected = cronExpr === p.cron;
+            return (
+              <button
+                key={p.cron}
+                type="button"
+                disabled={!enabled}
+                onClick={() => setCronExpr(p.cron)}
+                className={`card p-3 text-left text-sm transition ${
+                  selected ? "ring-2 ring-[var(--accent)]" : "card-interactive"
+                }`}
+              >
+                <span className="font-medium">{p.label}</span>
+                <span className="block font-mono text-xs text-muted-2">
+                  {p.cron}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <label className="mt-3 block">
+          <span className="label">
+            Custom cron expression{isPreset ? " (or pick a preset above)" : ""}
+          </span>
+          <input
+            value={cronExpr}
+            disabled={!enabled}
+            onChange={(e) => setCronExpr(e.target.value)}
+            placeholder="0 8 * * *"
+            className="input font-mono"
+          />
+        </label>
+      </div>
+
+      <SaveBar
+        label="Save schedule"
+        pending={pending}
+        msg={msg}
+        onSave={save}
+      />
+    </section>
   );
 }
 

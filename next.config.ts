@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     "pdf-parse",
     "mammoth",
     "@react-pdf/renderer",
+    "node-cron",
   ],
 };
 

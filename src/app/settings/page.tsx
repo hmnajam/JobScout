@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { loadLlmConfig } from "@/lib/llm/config";
 import { getProfile } from "@/lib/profile/store";
+import { loadScheduleConfig } from "@/lib/schedule/config";
 import { SettingsForm } from "./SettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const llm = loadLlmConfig();
   const profile = await getProfile();
+  const schedule = loadScheduleConfig();
 
   // Which providers have credentials configured (informational only).
   const availability = {
@@ -29,6 +31,7 @@ export default async function SettingsPage() {
       <SettingsForm
         llm={llm}
         availability={availability}
+        schedule={schedule}
         profile={
           profile
             ? {

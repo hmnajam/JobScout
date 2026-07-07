@@ -1,6 +1,7 @@
 import { listJobs, statusCounts } from "@/lib/jobs/store";
 import { getProfile } from "@/lib/profile/store";
 import { JobsDashboard } from "./JobsDashboard";
+import { RunLog } from "./RunLog";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function JobsPage() {
         counts={counts}
         hasProfile={Boolean(profile)}
       />
+
+      <RunLog />
     </div>
   );
 }

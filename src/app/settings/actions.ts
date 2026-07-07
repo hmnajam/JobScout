@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type LlmConfig, PROVIDERS, saveLlmConfig } from "@/lib/llm/config";
 import { type ProfileInput, saveProfile } from "@/lib/profile/store";
+import {
+  type ScheduleConfig,
+  saveScheduleConfig,
+  scheduleConfigSchema,
+} from "@/lib/schedule/config";
+import { applySchedule } from "@/lib/schedule/scheduler";
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -26,6 +32,30 @@ export async function saveLlmConfigAction(
     saveLlmConfig(parsed.data);
     revalidatePath("/settings");
     return { ok: true, message: "Model settings saved." };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Save failed.",
+    };
+  }
+}
+
+export async function saveScheduleAction(
+  raw: ScheduleConfig,
+): Promise<ActionResult> {
+  const parsed = scheduleConfigSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Invalid schedule config." };
+  try {
+    saveScheduleConfig(parsed.data);
+    // Reconcile the live cron task with the new settings immediately.
+    const applied = applySchedule();
+    revalidatePath("/settings");
+    return {
+      ok: true,
+      message: applied.enabled
+        ? "Schedule saved and active."
+        : "Schedule saved (disabled).",
+    };
   } catch (err) {
     return {
       ok: false,
