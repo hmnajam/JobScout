@@ -59,6 +59,17 @@ const llmConfigSchema = z.object({
     .object({ fast: z.string().optional(), quality: z.string().optional() })
     .partial()
     .default({}),
+  // Optional per-task provider override. Lets cheap/free providers handle most
+  // work while routing only the tasks that need a stronger model elsewhere —
+  // e.g. Gemini free for scoring/drafting, OpenAI for resume structured output.
+  taskProviders: z
+    .object({
+      scoring: z.enum(PROVIDERS).optional(),
+      extraction: z.enum(PROVIDERS).optional(),
+      resume: z.enum(PROVIDERS).optional(),
+      drafting: z.enum(PROVIDERS).optional(),
+    })
+    .default({}),
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;
@@ -106,9 +117,9 @@ export function resolveTask(task: LlmTask): {
 } {
   const config = loadLlmConfig();
   const tier = TASK_TIER[task];
-  const model =
-    config.models[tier] ?? PROVIDER_DEFAULTS[config.provider][tier];
-  return { provider: config.provider, model, tier };
+  const provider = config.taskProviders[task] ?? config.provider;
+  const model = config.models[tier] ?? PROVIDER_DEFAULTS[provider][tier];
+  return { provider, model, tier };
 }
 
 export { PROVIDER_DEFAULTS };
