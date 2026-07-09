@@ -32,6 +32,17 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <Nav />
         <main className="flex-1">{children}</main>
+        <footer className="border-t border-border px-6 py-4 text-center text-xs text-muted">
+          Built by{" "}
+          <a
+            href="https://najam.pk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline underline-offset-2 hover:text-[var(--accent)]"
+          >
+            Najam
+          </a>
+        </footer>
       </body>
     </html>
   );

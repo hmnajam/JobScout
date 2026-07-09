@@ -2,6 +2,8 @@
   "name": "jobscout",
   "version": "0.1.0",
   "private": true,
+  "author": "Najam (https://najam.pk)",
+  "homepage": "https://najam.pk",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

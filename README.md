@@ -103,3 +103,7 @@ Single Next.js (App Router) app. Key modules under `src/lib`:
 - `schedule/` — cron scheduler + config (client-safe types split into `types.ts`).
 
 Storage is SQLite via Drizzle ORM (`better-sqlite3`).
+
+## Credits
+
+Built by **Najam** — [najam.pk](https://najam.pk).
