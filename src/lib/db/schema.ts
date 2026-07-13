@@ -1,35 +1,39 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
+  doublePrecision,
   integer,
-  real,
-  sqliteTable,
+  jsonb,
+  pgTable,
+  serial,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 /**
- * JobScout data model (SQLite via Drizzle).
+ * JobScout data model (Postgres via Drizzle).
  *
- * Structured JSON columns (resume sections, arrays of strings) are stored as text
- * with `{ mode: "json" }` so the app works with typed objects while SQLite stores
- * a serialized blob. Types for those shapes live alongside each table.
+ * Structured JSON columns (resume sections, arrays of strings) use `jsonb` so the
+ * app works with typed objects while Postgres stores them natively. Types for those
+ * shapes live alongside each table.
  */
 
 // ---------------------------------------------------------------------------
 // profile — the single user's job-search criteria
 // ---------------------------------------------------------------------------
-export const profile = sqliteTable("profile", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const profile = pgTable("profile", {
+  id: serial("id").primaryKey(),
   // Titles/keywords to search sources for, e.g. ["frontend engineer", "react dev"]
-  roleTargets: text("role_targets", { mode: "json" })
+  roleTargets: jsonb("role_targets")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
   seniority: text("seniority"), // e.g. "senior", "staff"
-  locations: text("locations", { mode: "json" })
+  locations: jsonb("locations")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
   remotePref: text("remote_pref", {
     enum: ["remote", "hybrid", "onsite", "any"],
   })
@@ -37,18 +41,16 @@ export const profile = sqliteTable("profile", {
     .default("any"),
   salaryFloor: integer("salary_floor"), // annual, in profile currency
   currency: text("currency").notNull().default("USD"),
-  dealbreakers: text("dealbreakers", { mode: "json" })
+  dealbreakers: jsonb("dealbreakers")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
   // Skills extracted from the master resume, used to sharpen matching.
-  skills: text("skills", { mode: "json" })
+  skills: jsonb("skills")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+    .default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
@@ -96,29 +98,27 @@ export type ResumeContent = {
   projects: ResumeProject[];
 };
 
-export const resume = sqliteTable("resume", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const resume = pgTable("resume", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull().default("Master resume"),
   // Null for the master resume; set for a variant tailored to a specific job.
   jobId: integer("job_id").references(() => job.id, { onDelete: "set null" }),
-  isMaster: integer("is_master", { mode: "boolean" }).notNull().default(false),
-  content: text("content", { mode: "json" }).$type<ResumeContent>().notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  isMaster: boolean("is_master").notNull().default(false),
+  content: jsonb("content").$type<ResumeContent>().notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
 // job — a normalized posting from any source
 // ---------------------------------------------------------------------------
-export const job = sqliteTable(
+export const job = pgTable(
   "job",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     title: text("title").notNull(),
     company: text("company").notNull(),
     location: text("location"),
-    remote: integer("remote", { mode: "boolean" }),
+    remote: boolean("remote"),
     salaryMin: integer("salary_min"),
     salaryMax: integer("salary_max"),
     currency: text("currency"),
@@ -128,9 +128,7 @@ export const job = sqliteTable(
     sourceId: text("source_id"), // provider's id for the posting
     // Normalized key for dedup across sources: lower(company|title|url-host).
     dedupKey: text("dedup_key").notNull(),
-    fetchedAt: integer("fetched_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("job_dedup_key_idx").on(t.dedupKey)],
 );
@@ -138,31 +136,29 @@ export const job = sqliteTable(
 // ---------------------------------------------------------------------------
 // match — LLM fit score for a job against the profile
 // ---------------------------------------------------------------------------
-export const match = sqliteTable("match", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const match = pgTable("match", {
+  id: serial("id").primaryKey(),
   jobId: integer("job_id")
     .notNull()
     .references(() => job.id, { onDelete: "cascade" }),
-  score: real("score").notNull(), // 0-100
-  reasons: text("reasons", { mode: "json" })
+  score: doublePrecision("score").notNull(), // 0-100
+  reasons: jsonb("reasons")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
-  concerns: text("concerns", { mode: "json" })
+    .default(sql`'[]'::jsonb`),
+  concerns: jsonb("concerns")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
   model: text("model"), // which model produced the score
-  scoredAt: integer("scored_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  scoredAt: timestamp("scored_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
 // application — tracked application for a job (drafts only, never auto-submitted)
 // ---------------------------------------------------------------------------
-export const application = sqliteTable("application", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const application = pgTable("application", {
+  id: serial("id").primaryKey(),
   jobId: integer("job_id")
     .notNull()
     .references(() => job.id, { onDelete: "cascade" }),
@@ -175,32 +171,28 @@ export const application = sqliteTable("application", {
   })
     .notNull()
     .default("new"),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
 // run — a pipeline execution log
 // ---------------------------------------------------------------------------
-export const run = sqliteTable("run", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  startedAt: integer("started_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  finishedAt: integer("finished_at", { mode: "timestamp" }),
+export const run = pgTable("run", {
+  id: serial("id").primaryKey(),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
   // Per-source counts, e.g. { remotive: 12, jsearch: 40 }
-  sourceCounts: text("source_counts", { mode: "json" })
+  sourceCounts: jsonb("source_counts")
     .$type<Record<string, number>>()
     .notNull()
-    .default(sql`'{}'`),
+    .default(sql`'{}'::jsonb`),
   fetched: integer("fetched").notNull().default(0),
   added: integer("added").notNull().default(0),
   scored: integer("scored").notNull().default(0),
-  errors: text("errors", { mode: "json" })
+  errors: jsonb("errors")
     .$type<string[]>()
     .notNull()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
   trigger: text("trigger", { enum: ["manual", "cron"] })
     .notNull()
     .default("manual"),

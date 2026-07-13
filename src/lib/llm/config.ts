@@ -73,6 +73,8 @@ const llmConfigSchema = z.object({
 });
 
 export type LlmConfig = z.infer<typeof llmConfigSchema>;
+/** Input shape (before zod defaults are applied) — what callers may supply. */
+export type LlmConfigInput = z.input<typeof llmConfigSchema>;
 
 const CONFIG_PATH = path.join(process.cwd(), "jobscout.config.json");
 
@@ -85,8 +87,33 @@ function detectDefaultProvider(): Provider {
   return "anthropic"; // last resort; a helpful error surfaces at call time
 }
 
-/** Load persisted LLM config from disk, or derive a default from the env. */
+/**
+ * Build LLM config from env vars, if `LLM_PROVIDER` is set. Used on hosted
+ * deploys (e.g. Vercel) where the runtime filesystem is read-only, so config
+ * lives in env instead of jobscout.config.json.
+ */
+function envLlmConfig(): LlmConfig | null {
+  if (!env.LLM_PROVIDER) return null;
+  return llmConfigSchema.parse({
+    provider: env.LLM_PROVIDER,
+    models: {
+      fast: env.LLM_MODEL_FAST,
+      quality: env.LLM_MODEL_QUALITY,
+    },
+    taskProviders: {
+      scoring: env.LLM_TASK_SCORING,
+      extraction: env.LLM_TASK_EXTRACTION,
+      resume: env.LLM_TASK_RESUME,
+      drafting: env.LLM_TASK_DRAFTING,
+    },
+  });
+}
+
+/** Load LLM config: env vars first, then disk, then an env-derived default. */
 export function loadLlmConfig(): LlmConfig {
+  const fromEnv = envLlmConfig();
+  if (fromEnv) return fromEnv;
+
   if (existsSync(CONFIG_PATH)) {
     try {
       const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
@@ -99,7 +126,7 @@ export function loadLlmConfig(): LlmConfig {
 }
 
 /** Persist LLM config (used by the settings UI). */
-export function saveLlmConfig(config: LlmConfig): void {
+export function saveLlmConfig(config: LlmConfigInput): void {
   const existing = existsSync(CONFIG_PATH)
     ? JSON.parse(readFileSync(CONFIG_PATH, "utf8"))
     : {};

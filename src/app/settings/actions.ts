@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { type LlmConfig, PROVIDERS, saveLlmConfig } from "@/lib/llm/config";
+import {
+  type LlmConfigInput,
+  PROVIDERS,
+  saveLlmConfig,
+} from "@/lib/llm/config";
 import { type ProfileInput, saveProfile } from "@/lib/profile/store";
 import {
   type ScheduleConfig,
@@ -24,7 +28,7 @@ const llmSchema = z.object({
 });
 
 export async function saveLlmConfigAction(
-  raw: LlmConfig,
+  raw: LlmConfigInput,
 ): Promise<ActionResult> {
   const parsed = llmSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Invalid model config." };
